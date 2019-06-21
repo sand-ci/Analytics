@@ -1,0 +1,141 @@
+GET /ps_trace/_search/
+{
+  "aggs" : {
+      "Counts" : {
+          "terms" : {
+            "field" : "dest_host" 
+      } 
+    }
+  }
+}
+
+GET /ps_trace/_search/
+{
+        "aggs" : {
+            "Counts" : {
+                "terms" : { "field" : "hash" } 
+                }
+            }
+        }
+        
+GET /ps_trace/_search/
+{
+    "aggs":{
+        "uniq_val":{
+            "cardinality":{
+                "field":"src"
+                }
+            }
+        }    
+    }
+    
+    
+GET ps_trace/_search
+{
+    "size":0,
+    "aggs" : {
+        "src_dest_pairs" : {
+            "terms" : {
+                "script" : {
+                    "source": "doc['src_host'].value + ',' + doc['dest_host'].value",
+                    "lang": "painless"
+                },
+                "size":25000
+            }
+        }
+    }
+}
+
+GET ps_trace/_search
+{
+    "size":0,
+    "aggs":{
+        "uniq_val":{
+            "terms":{
+                    "script":{
+                      "source": "doc['src_host'].value + ',' + doc['dest_host'].value",
+                      "lang": "painless"
+                    }
+                }
+            }
+        }    
+    }
+    
+    
+GET ps_trace/_search
+{
+    "size":0,
+    "aggs":{
+        "uniq_val":{
+            "terms":{
+                    "script":{
+                      "source": "doc['src_host'].value + ',' + doc['dest_host'].value",
+                      "lang": "painless"
+                    }
+                },
+            "aggs":{
+                "uniq_hash":{
+                    "cardinality":{
+                        "fields":"hash"
+                    }
+                }
+            }
+            }
+        }    
+    }
+
+
+{
+    "size": 0, 
+    "query": {
+      "range": {
+        "timestamp": {
+          "gte": "20190517T000000Z",
+          "lte": "20190601T000000Z"
+        }
+      }
+    },
+    "aggs":{
+        "uniq_val":{
+            "terms":{
+                    "script":{
+                      "source": "doc['src_host'].value + ',' + doc['dest_host'].value",
+                      "lang": "painless"
+                    },
+                    "size": 5905
+                },
+            "aggs":{
+                "uniq_hash":{
+                    "cardinality":{
+                        "field":"hash"
+                    }
+                }
+            }
+          }
+        }    
+    }
+
+
+
+{
+    "query": {
+      "range": {
+        "timestamp": {
+          "gte": "20190517T000000Z",
+          "lte": "20190601T000000Z"
+        }
+      }
+    }, 
+    "size":0,
+    "aggs":{
+        
+        "uniq_val":{
+            "cardinality":{
+                    "script":{
+                      "source": "doc['src_host'].value + ',' + doc['dest_host'].value",
+                      "lang": "painless"
+                    }
+                }
+            }
+        }    
+    }
