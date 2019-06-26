@@ -139,3 +139,96 @@ GET ps_trace/_search
             }
         }    
     }
+
+
+GET ps_trace/_search
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "term": {
+            "src_host": {
+              "value": "psonartest1.fnal.gov"
+            }
+          }
+        },
+        {
+          "term": {
+            "dest_host": {
+              "value": "pship02.csc.fi"
+            }
+          }
+        }
+      ],
+      "filter": {
+        "bool": {
+          "range": {
+            "timestamp": {
+              "gte": "20190528164829",
+              "lte": "20190625164847"
+            }
+          }
+        }
+      }
+    }
+  },
+  "aggs": {
+    "time_hist": {
+      "date_histogram": {
+        "field": "timestamp",
+        "interval": "week"
+      },
+      "aggs": {
+        "uniq_hash": {
+          "cardinality": {
+            "field": "hash"
+          }
+        }
+      }
+    }
+  }
+}
+
+
+
+GET ps_trace/_search
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "term": {
+            "src_host": {
+              "value": "psonartest1.fnal.gov"
+            }
+          }
+        },
+        {
+          "term": {
+            "dest_host": {
+              "value": "pship02.csc.fi"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "aggs": {
+    "time_hist": {
+      "date_histogram": {
+        "field": "timestamp",
+        "interval": "week"
+      },
+      "aggs": {
+        "uniq_hash": {
+          "cardinality": {
+            "field": "hash"
+          }
+        }
+      }
+    }
+  }
+}
