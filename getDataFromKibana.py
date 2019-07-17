@@ -1,8 +1,14 @@
 #%%%
+from itertools import chain
+
 from elasticsearch import Elasticsearch
+from neo4j import GraphDatabase
+
 import pandas as pd
 import numpy as np
+
 import r_utils as ut
+
 
 #%%
 user = 'sushant'
@@ -18,10 +24,10 @@ src_ip  = "193.239.180.213"
 dest_ip = "109.105.125.233"
 
 to_date = ut.getDateFormat()
-from_date = ut.getDateFormat(delta=91)
+from_date = ut.getDateFormat(delta=181)
 
 query = {
-    "size":5,
+    "size":5000,
     "_source":["hops"],
     "query":{
         "bool":{
@@ -58,6 +64,9 @@ query = {
 #%%
 X = es.search('ps_trace', body=query)
 
+#%% [markdown]
+#### Getting Unique Paths from the paths given
+
 #%%
 
 pathDict = {}
@@ -69,3 +78,53 @@ for result in X['hits']['hits']:
     except:
         pathDict[temp] = 1
 #%%
+pathDict
+
+#%%
+paths = []
+for key in pathDict.keys():
+    paths.append(key.split(","))
+
+nodes = chain.from_iterable(paths)
+nodes = set([i for i in nodes if len(i) > 0])
+nodes
+
+
+
+#%%[markdown]
+# #### Now sending data to Neo4j
+# `i.e. creating path graph`
+
+#%%
+
+uri = 'bolt://localhost:7687'
+user = 'neo4j'
+pawd = '1234'
+neo = GraphDatabase.driver(uri, auth=(user, pawd))
+
+nodes = [i+1 for i in range(10)]
+nodes
+#%%
+with neo.session() as session:
+    for node in nodes:
+        session.run("CREATE (n:Node{{IP:'192.168.1.{}'}})".format(str(node)))
+
+#%%
+paths = [
+    [1,2,3,6,7,9,10],
+    [1,2,4,6,7,9,10],
+    [1,2,5,6,7,9,10],
+    [1,2,3,6,7,8,10],
+    [1,2,4,6,7,8,10],
+    [1,2,5,6,7,8,10]
+]
+
+paths
+
+#%%
+
+with neo.session() as session:
+    # session.run("CREATE INDEX ON :Node(IP)")
+    for path in paths:
+        for i in range(len(path)-1):
+            session.run("MATCH (s:Node{{IP:'192.168.1.{}'}}), (d:Node{{IP:'192.168.1.{}'}}) MERGE (s)-[:TO]->(d)".format(path[i],path[i+1]))
