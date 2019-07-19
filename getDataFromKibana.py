@@ -83,7 +83,8 @@ pathDict
 #%%
 paths = []
 for key in pathDict.keys():
-    paths.append(key.split(","))
+    if pathDict[key] >= 5:
+        paths.append(["SOURCE"]+key.split(",")+["DESTINATION"])
 
 nodes = chain.from_iterable(paths)
 nodes = set([i for i in nodes if len(i) > 0])
@@ -102,24 +103,16 @@ user = 'neo4j'
 pawd = '1234'
 neo = GraphDatabase.driver(uri, auth=(user, pawd))
 
-nodes = [i+1 for i in range(10)]
-nodes
+# nodes = [i+1 for i in range(10)]
+# nodes
+
+#%%
+paths
+
 #%%
 with neo.session() as session:
     for node in nodes:
-        session.run("CREATE (n:Node{{IP:'192.168.1.{}'}})".format(str(node)))
-
-#%%
-paths = [
-    [1,2,3,6,7,9,10],
-    [1,2,4,6,7,9,10],
-    [1,2,5,6,7,9,10],
-    [1,2,3,6,7,8,10],
-    [1,2,4,6,7,8,10],
-    [1,2,5,6,7,8,10]
-]
-
-paths
+        session.run("CREATE (n:Node{{IP:'{}'}})".format(str(node)))
 
 #%%
 
@@ -127,4 +120,11 @@ with neo.session() as session:
     # session.run("CREATE INDEX ON :Node(IP)")
     for path in paths:
         for i in range(len(path)-1):
-            session.run("MATCH (s:Node{{IP:'192.168.1.{}'}}), (d:Node{{IP:'192.168.1.{}'}}) MERGE (s)-[:TO]->(d)".format(path[i],path[i+1]))
+            session.run("MATCH (s:Node{{IP:'{}'}}), (d:Node{{IP:'{}'}}) MERGE (s)-[:TO]->(d)".format(path[i],path[i+1]))
+
+
+
+#%%
+
+
+
