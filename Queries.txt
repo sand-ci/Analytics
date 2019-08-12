@@ -232,3 +232,52 @@ GET ps_trace/_search
     }
   }
 }
+
+
+curl -XGET "http://192.170.227.32:9201/ps_trace/_search" -H 'Content-Type: application/json' -d'
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "range": {
+            "timestamp": {
+              "gte": "20190515T000000Z",
+              "lte": "20190601T000000Z"
+            }
+          }
+        },
+        {
+          "term": {
+            "src_host": {
+              "value": "psonartest1.fnal.gov"
+            }
+          }
+        },
+        {
+          "term": {
+            "dest_host": {
+              "value": "pship02.csc.fi"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "aggs": {
+    "time_hist": {
+      "date_histogram": {
+        "field": "timestamp",
+        "interval": "day"
+      },
+      "aggs": {
+        "uniq_hash": {
+          "cardinality": {
+            "field": "hash"
+          }
+        }
+      }
+    }
+  }
+}'
