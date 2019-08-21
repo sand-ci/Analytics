@@ -1,6 +1,6 @@
 import Utility_Modules.r_utils as ut
 
-def getUniqueCount(es, index, field):
+def getUniqueCount(es, index, field, time_from, time_to):
     '''
     Get Unique Count returns the distinct count of the field in the index.
     
@@ -10,6 +10,36 @@ def getUniqueCount(es, index, field):
     '''
     
     query = {
+    "size":0,
+    "query":{
+      "bool":{
+        "must":[
+          {
+            "range":{
+              "timestamp":{
+              "gte":time_from,
+              "lte":time_to,
+              "format": "epoch_millis"
+              }
+            }
+          },
+          {
+            "term":{
+              "src_production":{
+                "value":"true"
+              }
+            }
+          },
+          {
+            "term":{
+              "dest_production":{
+                "value":"true"
+              }
+            }
+          }
+        ]
+      }
+    },
     'aggs':{
         'uniq_val':{
             'cardinality':{
@@ -18,6 +48,7 @@ def getUniqueCount(es, index, field):
             }
         }    
     }
+
     try:
         result = es.search(index='ps_trace', body=query)
         val = result['aggregations']['uniq_val']['value']
@@ -27,7 +58,7 @@ def getUniqueCount(es, index, field):
         return None
 
     
-def getUniqueCountBy(es, index, field):
+def getUniqueCountBy(es, index, field, time_from, time_to):
     '''
     Get Unique Count returns the distinct count of the for each value of field in the index.
     Field : Attribute In the Index (String)
@@ -35,11 +66,40 @@ def getUniqueCountBy(es, index, field):
     
     Prints the number of buckets that will be returned.
     '''
-    sz = getUniqueCount(es,index, field)
+    sz = getUniqueCount(es,index, field, time_from, time_to)
     print("Size : {}".format(sz))
     
     query = {
         "size":0,
+        "query":{
+          "bool":{
+            "must":[
+              {
+                "range":{
+                  "timestamp":{
+                    "gte":time_from,
+                    "lte": time_to,
+                    "format": "epoch_millis"
+                  }
+                }
+              },
+              {
+                "term":{
+                  'src_production':{
+                    "value":"true"
+                  }
+                }
+              },
+              {
+                "term":{
+                  "dest_production":{
+                    "value":"true"
+                  }
+                }
+              }
+            ]
+          }
+        },
         "aggs":{
             "FieldCounts":{
                 "terms":{
@@ -69,12 +129,32 @@ def getNumHashesBetweenHostsInTimeRange(es, index, time_from, time_to):
     
     pre_query = {
     "query": {
-      "range": {
-        "timestamp": {
-          "gte": time_from,
-          "lte": time_to,
-          "format":"epoch_millis"
-        }
+      "bool":{
+        "must":[
+          {
+            "range":{
+              "timestamp":{
+              "gte":time_from,
+              "lte":time_to,
+              "format": "epoch_millis"
+              }
+            }
+          },
+          {
+            "term":{
+              "src_production":{
+                "value":"true"
+              }
+            }
+          },
+          {
+            "term":{
+              "dest_production":{
+                "value":"true"
+              }
+            }
+          }
+        ]
       }
     }, 
     "size":0,
@@ -98,11 +178,32 @@ def getNumHashesBetweenHostsInTimeRange(es, index, time_from, time_to):
     query = {
     "size": 0, 
     "query": {
-      "range": {
-        "timestamp": {
-          "gte": time_from,
-          "lte": time_to
-        }
+      "bool":{
+        "must":[
+          {
+            "range": {
+              "timestamp": {
+              "gte": time_from,
+              "lte": time_to,
+              "format":"epoch_millis"
+              }
+            }
+          },
+          {
+            "term":{
+              'src_production':{
+                "value":"true"
+              }
+            }
+          },
+          {
+            "term":{
+              "dest_production":{
+                "value":"true"
+              }
+            }
+          }
+        ]
       }
     },
     "aggs":{
@@ -167,6 +268,16 @@ def getDailyUniquePaths(es, index, src, dest, since):
                   "value": dest
                 }
               }
+            },
+            {
+              "term":{
+                "src_production":"true"
+              }
+            },
+            {
+              "term":{
+                "dest_production":"true"
+              }
             }
           ]
         }
@@ -189,58 +300,3 @@ def getDailyUniquePaths(es, index, src, dest, since):
     }
     
     return es.search(index, body=query)  
-
-'''
-def getDailyAveragePaths(es, index, since):
-    """
-    Get number of unique paths from 
-    src : Source (String)
-    dest: Destination (String) 
-    since: how many past days
-    """
-    toDate = ut.getDateFormat(delta = 1)
-    fromDate = ut.getDateFormat(delta = since)
-    
-    query = {
-      "size": 0,
-      "query": {
-        "bool": {
-          "must": [
-            {
-              "range": {
-                "timestamp": {
-                  "gte": fromDate,
-                  "lte": toDate,
-                  "format": "epoch_millis"
-                }
-              }
-            },
-            "terms":{
-                    "script":{
-                      "source": "doc['src_host'].value + ',' + doc['dest_host'].value",
-                      "lang": "painless"
-                    },
-                "size":sz,
-            }
-          ]
-        }
-      },
-      "aggs": {
-        "time_hist": {
-          "date_histogram": {
-            "field": "timestamp",
-            "interval": "day"
-          },
-          "aggs": {
-            "uniq_hash": {
-              "avg": {
-                "field": "hash"
-              }
-            }
-          }
-        }
-      }
-    }
-    
-    return es.search(index, body=query)  
-'''
