@@ -300,3 +300,164 @@ def getDailyUniquePaths(es, index, src, dest, since):
     }
     
     return es.search(index, body=query)  
+
+
+def getSourceDestinationPairs(es, to_date, from_date):
+    """
+    Get all source and destination pairs
+    present in the given time range 
+    
+    Args:
+        es: Elasticsearch 
+        to_date:  epoch_millis
+        from_date: epoch_millis
+    
+    Returns:
+        Datafame of all source destination pairs
+    """
+    
+    query = {
+        "size":0,
+        "query":{
+            "bool":{
+                "must":[
+                    {
+                        "range":{
+                            "timestamp":{
+                                "gte":from_date,
+                                "lte":to_date,
+                                "format":"epoch_millis"
+                            }
+                        }
+                    },
+                    {
+                        "term":{
+                            "dest_production":{
+                                "value":"true"
+                            }
+                        }
+                    },
+                    {
+                        "term":{
+                            "src_production":{
+                                "value":"true"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "aggs":{
+            "sources":{
+                "terms":{
+                    "field":"src",
+                    "size":9999
+                },
+                "aggs":{
+                    "destinations":{
+                        "terms":{
+                            "field":"dest",
+                            "size":9999
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    data = es.search('ps_trace', body=query)
+    
+    sources = []
+    destinations = []
+
+    for source in data['aggregations']['sources']['buckets']:
+        src = source['key']
+        for destination in source['destinations']['buckets']:
+            sources.append(src)
+            destinations.append(destination['key'])
+    
+    return {"Source":sources, "Destinations":destinations}
+
+
+def getPathCounts(es, src_ip, dest_ip, from_date, to_date):
+    """
+    Returns a list of Counts of Paths taken from given source and destination
+
+    Args:
+        src_ip: Source IP, String [ex: "192.168.1.1"]
+        dest_ip: Destination IP, String [ex: "192.168.1.5"]
+    
+    Returns:
+        A list of dictionaries. The dictionary looks as follows:
+        {
+            'key':HASH VALUE,
+            'doc_count': # of times path taken
+        }
+    """
+
+    query = {
+        "size":0,
+        "query":{
+            "bool":{
+                "must":[
+                    {
+                        "range":{
+                            "timestamp":{
+                                "gte":from_date,
+                                "lte":to_date,
+                                "format":"epoch_millis"
+                            }
+                        }
+                    },
+                    {
+                        "term":{
+                            "src":{
+                                "value":src_ip
+                            }
+                        }
+                    },
+                    {
+                        "term":{
+                            "dest":{
+                                "value":dest_ip
+                            }
+                        }
+                    },
+                    {
+                        "term":{
+                            "src_production":{
+                                "value":"true"
+                            }
+                        }
+                    },
+                    {
+                        "term":{
+                            "dest_production":{
+                                "value":"true"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "aggs":{
+            "HashCounts":{
+                "terms":{
+                    "field":"hash",
+                    "size":9999
+                }
+            }
+        }
+    }
+
+    try:
+        data = es.search('ps_trace', body=query)
+    except Exception as e:
+        print("ERROR", e, src_ip, dest_ip, "\n")
+        return -1
+    paths = data["aggregations"]["HashCounts"]["buckets"]
+    
+    if len(paths) == 0:
+        return -1 
+    else:
+        return paths
