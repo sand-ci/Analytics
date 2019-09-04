@@ -450,14 +450,88 @@ def getPathCounts(es, src_ip, dest_ip, from_date, to_date):
         }
     }
 
-    try:
-        data = es.search('ps_trace', body=query)
-    except Exception as e:
-        print("ERROR", e, src_ip, dest_ip, "\n")
-        return -1
+    data_flag = 0
+    while data_flag == 0:
+        try:
+            data = es.search('ps_trace', body=query)
+            data_flag = 1
+        except Exception:
+            print("ERROR in getPathCounts", src_ip, dest_ip, "\n")
+    
     paths = data["aggregations"]["HashCounts"]["buckets"]
     
     if len(paths) == 0:
         return -1 
     else:
         return paths
+
+
+def getPathReadTime(es, path, time_to, time_from, size):
+    """
+    Gets the timestamps for the hash provided in the given time range
+    
+    Args:
+        es: Elastic Search Object
+        path: Hashed value of the path
+        time_to: Time range start in epoch millisecond
+        time_from: Time range end in epoch millisecond
+        size: Number of readings for the path
+    Returns:
+        A list of time-stamps (epoch_millis) on which the path was recorded 
+    """
+    
+    query = {
+        "_source":['timestamp'],
+        "size":size,
+        "query":{
+            "bool":{
+                "must":[
+                    {
+                        "range":{
+                            "timestamp":{
+                                "gte":time_from,
+                                "lte":time_to,
+                                "format":"epoch_millis"
+                            }
+                        }
+                    },
+                    {
+                        "term":{
+                            "src_production":{
+                                "value":"true"
+                            }
+                        }
+                    },
+                    {
+                        "term":{
+                            "dest_production":{
+                                "value":"true"
+                            }
+                        }
+                    },
+                    {
+                        "term":{
+                            "hash":{
+                                "value":path
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    }
+    
+    data_flag = 0
+    while data_flag == 0:
+        try:
+            data = es.search('ps_trace', body=query,filter_path=['hits.hits._source.timestamp'])
+            data_flag = 1
+        except Exception:
+            print("Error in PairPaths | src:{} | dest:{}".format(src, dest))
+
+    results = []
+    
+    for hit in data['hits']['hits']:
+        results.append(hit['_source']['timestamp'])
+    
+    return results
