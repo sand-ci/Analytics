@@ -19,10 +19,11 @@ def process_row(row):
 
 
 def process_data(params):
+    
     thread_id = params[0]
     time_from = params[1]
     time_to = params[2]
-
+    
     query = {
         "_source":['timestamp','src','dest','traceroute','hops','n_hops','rtts'],
         "query":{
@@ -41,10 +42,18 @@ def process_data(params):
     }
     
     start_time = time()
-    page = es.search(index = 'ps_trace', scroll = '2m', size = 2500, body = query)
+    is_page = 0
+    while is_page == 0:
+        try:
+            page = es.search(index = 'ps_trace', scroll = '2m', size = 2500, body = query)
+            is_page = 1
+        except Exception:
+            print("Error !, getting page. Retrying")
+            time.sleep(0.01)
+            
     sid = page['_scroll_id']
     scroll_size = page['hits']['total']['value']
-    print("Thread {:3d} processing {} docs".format(thread_id, scroll_size))
+    print(scroll_size)
     i = 0
     while (scroll_size > 0):
         actions = [process_row(result['_source']) for result in page['hits']['hits']]
@@ -55,8 +64,16 @@ def process_data(params):
                 bulk_push = 1
             except Exception:
                 print("Bulk Push Error, Retrying !")
-                
-        page = es.scroll(scroll_id = sid, scroll = '2m')
+                time.sleep(0.10)
+        is_page = 0
+        while is_page == 0:
+            try:
+                page = es.scroll(scroll_id = sid, scroll = '2m')
+                is_page = 1
+            except Exception:
+                print("Error! Getting Page, Retrying")
+                time.sleep(0.10)
+    
         sid = page['_scroll_id']
         scroll_size = len(page['hits']['hits'])
         if i % 10 == 0:
@@ -65,8 +82,6 @@ def process_data(params):
             print("Thread Id: {:3d} | Iteration: {:3d} |Time Elapsed: {:4.4f}m {:4.4f}s".format(thread_id, i+1, mins, secs))
         
         i += 1
-    
-    print("Thread Id: {:3d} Completed | Time Elapsed: {:4.4f}m {:4.4f}s".format(thread_id, mins, secs))
 
 
 if __name__ == "__main__":
