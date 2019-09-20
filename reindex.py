@@ -1,6 +1,6 @@
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk
-from time import time
+from time import time, sleep
 import multiprocessing as mp
 
 
@@ -25,7 +25,7 @@ def process_data(params):
     time_to = params[2]
     
     query = {
-        "_source":['timestamp','src','dest','traceroute','hops','n_hops','rtts'],
+        "_source":['timestamp','src','dest','traceroute','hops','n_hops','rtts','hops'],
         "query":{
             "bool":{
             "must":[
@@ -45,15 +45,15 @@ def process_data(params):
     is_page = 0
     while is_page == 0:
         try:
-            page = es.search(index = 'ps_trace', scroll = '2m', size = 2500, body = query)
+            page = es.search(index = 'ps_trace', scroll = '2m', size = 1000, body = query)
             is_page = 1
         except Exception:
             print("Error !, getting page. Retrying")
-            time.sleep(0.01)
+            sleep(0.01)
             
     sid = page['_scroll_id']
     scroll_size = page['hits']['total']['value']
-    print(scroll_size)
+    print("Batch ID: {} Processing : {} documents".format(thread_id, scroll_size))
     i = 0
     while (scroll_size > 0):
         actions = [process_row(result['_source']) for result in page['hits']['hits']]
@@ -64,7 +64,7 @@ def process_data(params):
                 bulk_push = 1
             except Exception:
                 print("Bulk Push Error, Retrying !")
-                time.sleep(0.10)
+                sleep(0.10)
         is_page = 0
         while is_page == 0:
             try:
@@ -72,14 +72,14 @@ def process_data(params):
                 is_page = 1
             except Exception:
                 print("Error! Getting Page, Retrying")
-                time.sleep(0.10)
+                sleep(0.10)
     
         sid = page['_scroll_id']
         scroll_size = len(page['hits']['hits'])
-        if i % 10 == 0:
+        if i % 25 == 0:
             total_time = time() - start_time
             mins, secs = divmod(total_time, 60)
-            print("Thread Id: {:3d} | Iteration: {:3d} |Time Elapsed: {:4.4f}m {:4.4f}s".format(thread_id, i+1, mins, secs))
+            print("Thread Id: {:3d} | Iteration: {:3d} |Time Elapsed: {:4.0f}m {:4.4f}s".format(thread_id, i+1, mins, secs))
         
         i += 1
 
@@ -119,6 +119,10 @@ if __name__ == "__main__":
         time_from += window_millis
         i += 1
         
+    for batch in batches:
+        process_data(batch)
+    
+    """
     n_threads = len(batches)
 
     pool = mp.Pool(n_threads)
@@ -126,3 +130,4 @@ if __name__ == "__main__":
 
     pool.close()
     pool.join()
+    """
