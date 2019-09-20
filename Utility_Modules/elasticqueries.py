@@ -302,15 +302,14 @@ def getDailyUniquePaths(es, index, src, dest, since):
     return es.search(index, body=query)  
 
 
-def getSourceDestinationPairs(es, to_date, from_date):
+def getSourceDestinationPairs(es, index):
     """
     Get all source and destination pairs
     present in the given time range 
     
     Args:
         es: Elasticsearch 
-        to_date:  epoch_millis
-        from_date: epoch_millis
+        index: INdex in Elastic Search
     
     Returns:
         Datafame of all source destination pairs
@@ -318,35 +317,6 @@ def getSourceDestinationPairs(es, to_date, from_date):
     
     query = {
         "size":0,
-        "query":{
-            "bool":{
-                "must":[
-                    {
-                        "range":{
-                            "timestamp":{
-                                "gte":from_date,
-                                "lte":to_date,
-                                "format":"epoch_millis"
-                            }
-                        }
-                    },
-                    {
-                        "term":{
-                            "dest_production":{
-                                "value":"true"
-                            }
-                        }
-                    },
-                    {
-                        "term":{
-                            "src_production":{
-                                "value":"true"
-                            }
-                        }
-                    }
-                ]
-            }
-        },
         "aggs":{
             "sources":{
                 "terms":{
@@ -365,7 +335,7 @@ def getSourceDestinationPairs(es, to_date, from_date):
         }
     }
 
-    data = es.search('ps_trace', body=query)
+    data = es.search(index, body=query)
     
     sources = []
     destinations = []
@@ -379,7 +349,7 @@ def getSourceDestinationPairs(es, to_date, from_date):
     return {"Source":sources, "Destinations":destinations}
 
 
-def getPathCounts(es, src_ip, dest_ip, from_date, to_date):
+def getPathCounts(es, src_ip, dest_ip):
     """
     Returns a list of Counts of Paths taken from given source and destination
 
@@ -401,15 +371,6 @@ def getPathCounts(es, src_ip, dest_ip, from_date, to_date):
             "bool":{
                 "must":[
                     {
-                        "range":{
-                            "timestamp":{
-                                "gte":from_date,
-                                "lte":to_date,
-                                "format":"epoch_millis"
-                            }
-                        }
-                    },
-                    {
                         "term":{
                             "src":{
                                 "value":src_ip
@@ -423,20 +384,6 @@ def getPathCounts(es, src_ip, dest_ip, from_date, to_date):
                             }
                         }
                     },
-                    {
-                        "term":{
-                            "src_production":{
-                                "value":"true"
-                            }
-                        }
-                    },
-                    {
-                        "term":{
-                            "dest_production":{
-                                "value":"true"
-                            }
-                        }
-                    }
                 ]
             }
         },
@@ -453,7 +400,7 @@ def getPathCounts(es, src_ip, dest_ip, from_date, to_date):
     data_flag = 0
     while data_flag == 0:
         try:
-            data = es.search('ps_trace', body=query)
+            data = es.search('ps_derived_complete_traces', body=query)
             data_flag = 1
         except Exception:
             print("ERROR in getPathCounts", src_ip, dest_ip, "\n")
